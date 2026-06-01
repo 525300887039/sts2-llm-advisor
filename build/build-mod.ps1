@@ -47,18 +47,31 @@ Write-Host "[build-mod] Packing mod_manifest.json into PCK..."
 if ($LASTEXITCODE -ne 0) { throw "Godot PCK build failed with exit code $LASTEXITCODE" }
 if (-not (Test-Path $pckOutput)) { throw "PCK output not found: $pckOutput" }
 
+# The game runs Godot 4.5.1 and REJECTS any PCK stamped with a newer engine version
+# ("Pack created with a newer version of the engine"). Our packer is Godot 4.6.3, but the
+# pack format (v3) is identical, so we rewrite the header's engine-version field to 4.5.1.
+# PCK header layout: magic(0-3)="GDPC", pack_format(4-7), ver_major(8-11), ver_minor(12-15), ver_patch(16-19), little-endian.
+# NOTE: if the game updates its Godot version, bump the values below to match (or downgrade the packer).
+Write-Host "[build-mod] Stamping PCK engine version -> 4.5.1 for game compatibility..."
+$pckBytes = [System.IO.File]::ReadAllBytes($pckOutput)
+$pckBytes[12] = 5; $pckBytes[13] = 0; $pckBytes[14] = 0; $pckBytes[15] = 0   # ver_minor = 5
+$pckBytes[16] = 1; $pckBytes[17] = 0; $pckBytes[18] = 0; $pckBytes[19] = 0   # ver_patch = 1
+[System.IO.File]::WriteAllBytes($pckOutput, $pckBytes)
+
 # --- 3. Install into <game>/mods/ ---
 Write-Host "[build-mod] Installing into game mods directory..."
 New-Item -ItemType Directory -Force -Path $modsDir | Out-Null
+# Loose manifest must be named "<ModName>.json" (matches the proven RouteSuggest/Booba convention),
+# not "mod_id.json" — a generic name would collide in the shared flat mods/ dir.
 Copy-Item -Force $dllSource    (Join-Path $modsDir "$modName.dll")
 Copy-Item -Force $pckOutput    (Join-Path $modsDir "$modName.pck")
-Copy-Item -Force $modIdSource  (Join-Path $modsDir "mod_id.json")
+Copy-Item -Force $modIdSource  (Join-Path $modsDir "$modName.json")
 Copy-Item -Force $configExample (Join-Path $modsDir "config.example.json")
 
 Write-Host "[build-mod] Done. Using Godot: $GodotExe"
 Write-Host "[build-mod] Installed:"
 Write-Host "  $(Join-Path $modsDir "$modName.dll")"
 Write-Host "  $(Join-Path $modsDir "$modName.pck")"
-Write-Host "  $(Join-Path $modsDir "mod_id.json")"
+Write-Host "  $(Join-Path $modsDir "$modName.json")"
 Write-Host "  $(Join-Path $modsDir "config.example.json")"
 Write-Host "[build-mod] Rename config.example.json -> config.json and set your apiKey to enable advice."

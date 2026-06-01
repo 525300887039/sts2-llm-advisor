@@ -1,11 +1,11 @@
 {
-  "id": "sts2-ai-advisor",
-  "name": "STS2 AI Advisor",
-  "version": "0.1.0",
-  "author": "ducat",
-  "description": "LLM-powered card-reward advice for Slay the Spire 2.",
-  "hasPck": true,
-  "hasDll": true,
-  "affectsGameplay": false,
-  "dependencies": []
+    "id": "Sts2AiAdvisor",
+    "name": "STS2 AI Advisor",
+    "author": "ducat",
+    "description": "LLM-powered card-reward advice for Slay the Spire 2.",
+    "version": "0.1.0",
+    "has_pck": true,
+    "has_dll": true,
+    "dependencies": [],
+    "affects_gameplay": false
 }
