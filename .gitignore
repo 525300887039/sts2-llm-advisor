@@ -1,0 +1,13 @@
+# 仅用于分析的参考仓库,不纳入本项目
+research/
+
+# .NET 构建产物
+bin/
+obj/
+*.user
+
+# 本地密钥/配置
+config.local.json
+*.secret.json
+config.json
+local.props
