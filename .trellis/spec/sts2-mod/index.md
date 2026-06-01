@@ -34,6 +34,21 @@ build/build-mod.ps1       dotnet build → 打 PCK → 拷进 <游戏>/mods
 - 健壮性:缺 apiKey → 面板友好提示不抛异常;`response_format:{type:"json_object"}`;JSON 解析失败 → 原文落 `Summary`;`HttpClient` 单例复用;尊重 `CancellationToken`。
 - 注意:个别 OpenAI 兼容后端(某些 Ollama 模型)会拒绝 `json_object`(400),目前表现为面板报错而非崩溃。
 
+## 部署与运行时(进游戏实测踩坑,务必遵守)
+
+- **PCK 引擎版本门禁**:游戏跑 Godot 4.5.1,会**拒绝**用更新引擎打的 PCK(报 `Pack created with a newer version of the engine`)。`pack_format_version` 相同还不够。本机 Godot 是 4.6.3,故 `build-mod.ps1` 在打包后**改写 PCK 头部引擎版本戳为 4.5.1**(头部布局:magic 0-3 / pack_format 4-7 / major 8-11 / minor 12-15 / patch 16-19,小端;把 minor 设 5、patch 设 1)。游戏升级 Godot 时需同步调整。
+- **manifest 双 schema(关键,抄错就不加载)**:
+  - 松散文件名必须是 `<ModName>.json`(与 dll/pck 同名,**不是** `mod_id.json`),字段 **snake_case**:`id`(=文件名)/`name`/`author`/`description`/`version`/`has_pck`/`has_dll`/`dependencies`/`affects_gameplay`。
+  - PCK 内 `res://mod_manifest.json` 字段不同:`pck_name`(=pck 文件名)/`name`/`author`/`description`/`version`。
+  - (从能用的 RouteSuggest / Booba mod 反推确认)
+- **C# DLL 改动必须重启游戏**:游戏运行时锁住 `mods/*.dll`,`build-mod.ps1` 拷贝会失败。改逻辑→让用户完全退游戏→重新部署→重启。
+- **LLM 端点常在 Cloudflare 后**:默认 .NET/`HttpClient` UA 会被 **403(error 1010)**。必须带浏览器 UA(已加)。验证新 provider 时先用浏览器 UA 直连测试。
+- **reasoning 模型要给足 `max_tokens`**:如 `deepseek-v4-*` 会先花几百~上千 token 推理(`completion_tokens_details.reasoning_tokens`),`max_tokens` 太小会把 JSON 截断。已设 4096。实时建议优先选快模型(opencode-go 上 `deepseek-v4-flash` ~9s vs `deepseek-v4-pro` ~40s)。
+- **语言自适应**:`Godot.TranslationServer.GetLocale()`(游戏线程内调)返回如 `zh_Hans`;据此让 LLM 用对应语言回复。
+- **本地化卡名**:`card.Title` 直接就是当前语言的本地化名(实测 `zh_Hans` 下 = 战利品/流光溢彩/光子切割)。面板按 cardId 映射回 `Name` 显示,而非显示英文 id。
+- **浮层字体**:浮层 Control 挂到游戏 SceneTree root 下,**继承游戏主题的 CJK 字体**,中文 Label 直接能渲染,无需自带字体。
+- **provider 实例**:用户用 opencode-go(`https://opencode.ai/zen/go/v1`,OpenAI 兼容);真实 `config.json`(含 key)放 `mods/config.json`,已 gitignore。
+
 ## Quality Check(完成前自检)
 
 - [ ] `dotnet build -c Debug` 0 警告 0 错误。
