@@ -1,0 +1,39 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <!-- Optional machine-local override: create local.props next to this csproj to set <Sts2DataDir>. -->
+  <Import Project="local.props" Condition="Exists('local.props')" />
+
+  <PropertyGroup>
+    <TargetFramework>net9.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <LangVersion>latest</LangVersion>
+    <RootNamespace>Sts2AiAdvisor</RootNamespace>
+    <AssemblyName>Sts2AiAdvisor</AssemblyName>
+    <!-- Plugin assembly loaded dynamically by the game's mod loader -->
+    <EnableDynamicLoading>true</EnableDynamicLoading>
+
+    <!-- Resolve the game's managed-data directory:
+         1. local.props <Sts2DataDir> (imported above)
+         2. STS2_DATA_DIR environment variable
+         3. default Steam install path (verified present on this machine) -->
+    <Sts2DataDirFromEnv>$([System.Environment]::GetEnvironmentVariable('STS2_DATA_DIR'))</Sts2DataDirFromEnv>
+    <Sts2DataDir Condition="'$(Sts2DataDir)' == '' and '$(Sts2DataDirFromEnv)' != ''">$(Sts2DataDirFromEnv)</Sts2DataDir>
+    <Sts2DataDir Condition="'$(Sts2DataDir)' == ''">C:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2/data_sts2_windows_x86_64</Sts2DataDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- All three references are Private=false: the game ships them at runtime. -->
+    <Reference Include="sts2">
+      <HintPath>$(Sts2DataDir)/sts2.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="GodotSharp">
+      <HintPath>$(Sts2DataDir)/GodotSharp.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>$(Sts2DataDir)/0Harmony.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
+  </ItemGroup>
+</Project>

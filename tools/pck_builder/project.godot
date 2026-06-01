@@ -1,0 +1,10 @@
+; Throwaway Godot project: exists only so the headless editor can run build_pck.gd
+; to assemble the mod .pck. Not shipped and never opened in the editor GUI.
+
+config_version=5
+
+[application]
+
+config/name="sts2-ai-advisor-pck-builder"
+config/features=PackedStringArray("4.5")
+run/main_scene=""

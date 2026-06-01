@@ -1,0 +1,6 @@
+<!-- Copy to local.props (gitignored) to point the build at a non-default game install. -->
+<Project>
+  <PropertyGroup>
+    <Sts2DataDir>C:/Program Files (x86)/Steam/steamapps/common/Slay the Spire 2/data_sts2_windows_x86_64</Sts2DataDir>
+  </PropertyGroup>
+</Project>
