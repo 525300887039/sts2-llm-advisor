@@ -1,6 +1,7 @@
 // CanvasLayer/panel/button creation idiom adapted from sts2-advisor's OverlayManager (MIT);
 // only the lightweight scaffolding was reused, not the full overlay implementation.
 using System;
+using System.Collections.Generic;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
@@ -140,6 +141,8 @@ public sealed class AdvisorOverlay
             return;
         }
 
+        LogOffered(state);
+
         // Run the network call OFF the game thread.
         _ = Task.Run(async () =>
         {
@@ -149,7 +152,7 @@ public sealed class AdvisorOverlay
                 AdviceResult result = await _advisor
                     .GetAdviceAsync(new AdviceRequest(state), CancellationToken.None)
                     .ConfigureAwait(false);
-                text = FormatAdvice(result);
+                text = FormatAdvice(result, state);
             }
             catch (Exception ex)
             {
@@ -175,22 +178,43 @@ public sealed class AdvisorOverlay
         });
     }
 
-    private static string FormatAdvice(AdviceResult result)
+    private static string FormatAdvice(AdviceResult result, GameState state)
     {
+        // Map offered cardId -> localized display name, so advice shows the in-game card name
+        // (e.g. 战利品) instead of the raw English id (SPOILS_OF_BATTLE).
+        var nameById = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+        foreach (CardInfo c in state.OfferedCards)
+        {
+            if (!string.IsNullOrEmpty(c.Id) && !nameById.ContainsKey(c.Id))
+                nameById[c.Id] = string.IsNullOrWhiteSpace(c.Name) ? c.Id : c.Name;
+        }
+
         var sb = new StringBuilder();
         if (!string.IsNullOrWhiteSpace(result.Summary))
             sb.AppendLine(result.Summary).AppendLine();
 
         foreach (CardAdvice c in result.Cards)
         {
+            string display = c.CardId != null && nameById.TryGetValue(c.CardId, out string? localized)
+                ? localized
+                : c.CardId ?? "";
             string mark = c.Recommended ? "★ " : "  ";
-            sb.Append(mark).Append('[').Append(c.Grade).Append("] ").AppendLine(c.CardId);
+            sb.Append(mark).Append('[').Append(c.Grade).Append("] ").AppendLine(display);
             if (!string.IsNullOrWhiteSpace(c.Reason))
                 sb.Append("    ").AppendLine(c.Reason);
         }
 
         string text = sb.ToString().TrimEnd();
         return string.IsNullOrWhiteSpace(text) ? "(模型未返回建议)" : text;
+    }
+
+    /// <summary>Log offered card id=name pairs so we can confirm whether Name is localized.</summary>
+    private static void LogOffered(GameState state)
+    {
+        var sb = new StringBuilder();
+        foreach (CardInfo c in state.OfferedCards)
+            sb.Append(c.Id).Append('=').Append(c.Name).Append("; ");
+        ModLog.Info($"Offered id=name (locale '{state.Locale}'): {sb}");
     }
 
     private void SetContent(string text)

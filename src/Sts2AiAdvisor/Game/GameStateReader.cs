@@ -32,6 +32,7 @@ internal static class GameStateReader
         var state = new GameState();
         try
         {
+            state.Locale = ReadLocale();
             var runManager = RunManager.Instance;
             if (runManager == null)
             {
@@ -166,6 +167,22 @@ internal static class GameStateReader
             Name = relic.Title?.ToString() ?? relic.Id?.Entry ?? "unknown",
             Rarity = SafeString(() => relic.Rarity.ToString()),
         };
+    }
+
+    /// <summary>Current game UI locale via Godot's TranslationServer (game thread only). "" on failure.</summary>
+    private static string ReadLocale()
+    {
+        try
+        {
+            string locale = Godot.TranslationServer.GetLocale() ?? "";
+            ModLog.Info($"Detected game locale: '{locale}'");
+            return locale;
+        }
+        catch (Exception ex)
+        {
+            ModLog.Error("ReadLocale failed", ex);
+            return "";
+        }
     }
 
     private static int SafeInt(Func<int> getter)

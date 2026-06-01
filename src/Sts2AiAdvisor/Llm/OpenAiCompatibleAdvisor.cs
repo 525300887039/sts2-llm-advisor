@@ -18,7 +18,7 @@ namespace Sts2AiAdvisor.Llm;
 public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
 {
     // One shared client for the process; the request carries its own auth header per call.
-    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(90) };
 
     private static readonly JsonSerializerOptions PromptJson = new()
     {
@@ -43,7 +43,7 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
         if (!_config.IsValid)
             throw new InvalidOperationException("LLM config is invalid (missing apiKey or baseUrl).");
 
-        string systemPrompt = BuildSystemPrompt();
+        string systemPrompt = BuildSystemPrompt(req.State.Locale);
         string userPrompt = BuildUserPrompt(req.State);
 
         var body = new
@@ -56,11 +56,19 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
             },
             response_format = new { type = "json_object" },
             temperature = 0.3,
+            // Reasoning models (e.g. deepseek-v4-*) spend a large token budget on hidden
+            // reasoning before the JSON answer; too small a cap truncates the JSON. Keep generous.
+            max_tokens = 4096,
         };
 
         string url = _config.BaseUrl.TrimEnd('/') + "/chat/completions";
         using var request = new HttpRequestMessage(HttpMethod.Post, url);
         request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _config.ApiKey);
+        // Some OpenAI-compatible gateways (e.g. opencode-go) sit behind Cloudflare, which 403s the
+        // default .NET User-Agent (error 1010). Present a browser-like UA so the call isn't bot-blocked.
+        request.Headers.UserAgent.ParseAdd(
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36");
+        request.Headers.Accept.ParseAdd("application/json");
         request.Content = new StringContent(
             JsonSerializer.Serialize(body), Encoding.UTF8, "application/json");
 
@@ -73,13 +81,51 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
         return ParseAdvice(content);
     }
 
-    private static string BuildSystemPrompt()
+    private static string BuildSystemPrompt(string locale)
     {
         return "You are an expert Slay the Spire 2 coach. Given the player's run state and the cards "
             + "offered as a reward, advise which to pick. Reply with a SINGLE JSON object of the form: "
             + "{\"cards\":[{\"cardId\":\"<id>\",\"grade\":\"S|A|B|C|D|F\",\"reason\":\"<short>\","
             + "\"recommended\":true|false}],\"summary\":\"<one-line overall recommendation>\"}. "
-            + "Use the exact cardId values from the offered cards. Keep reasons concise.";
+            + "Use the exact cardId values from the offered cards. Keep reasons concise."
+            + LanguageDirective(locale);
+    }
+
+    /// <summary>Instruct the model to write human-readable text in the game's UI language.</summary>
+    private static string LanguageDirective(string locale)
+    {
+        string lang = LocaleToLanguageName(locale);
+        if (string.IsNullOrEmpty(lang))
+        {
+            // Unknown code: still tell the model to match the game's locale so it can adapt.
+            return string.IsNullOrWhiteSpace(locale)
+                ? ""
+                : $" IMPORTANT: Write every \"reason\" and the \"summary\" in the game's UI language (locale code \"{locale}\"). Keep cardId values and grade letters unchanged.";
+        }
+        return $" IMPORTANT: Write every \"reason\" and the \"summary\" in {lang}. Keep cardId values and grade letters unchanged.";
+    }
+
+    /// <summary>Map a Godot/STS2 locale code to an explicit language name for the prompt.</summary>
+    private static string LocaleToLanguageName(string locale)
+    {
+        if (string.IsNullOrWhiteSpace(locale)) return "";
+        string l = locale.Trim().ToLowerInvariant().Replace('-', '_');
+        if (l.StartsWith("zh"))
+        {
+            if (l.Contains("tw") || l.Contains("hk") || l.Contains("hant") || l == "zht")
+                return "Traditional Chinese (繁體中文)";
+            return "Simplified Chinese (简体中文)";
+        }
+        if (l.StartsWith("ja") || l.StartsWith("jp")) return "Japanese (日本語)";
+        if (l.StartsWith("ko")) return "Korean (한국어)";
+        if (l.StartsWith("fr")) return "French";
+        if (l.StartsWith("de")) return "German";
+        if (l.StartsWith("es") || l.StartsWith("sp")) return "Spanish";
+        if (l.StartsWith("ru")) return "Russian";
+        if (l.StartsWith("pt")) return "Portuguese";
+        if (l.StartsWith("it")) return "Italian";
+        if (l.StartsWith("en")) return "English";
+        return "";
     }
 
     private static string BuildUserPrompt(GameState state)

@@ -7,6 +7,10 @@ namespace Sts2AiAdvisor.Game;
 public sealed class GameState
 {
     public string Character { get; set; } = "unknown";
+
+    /// <summary>Current game UI locale (e.g. "zhs", "zh_CN", "eng"); used to pick the advice language.</summary>
+    public string Locale { get; set; } = "";
+
     public int ActNumber { get; set; }
     public int Floor { get; set; }
     public int CurrentHP { get; set; }
