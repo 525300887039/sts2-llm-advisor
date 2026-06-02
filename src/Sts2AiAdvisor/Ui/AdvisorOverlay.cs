@@ -27,9 +27,12 @@ public sealed class AdvisorOverlay
 
     private CanvasLayer? _layer;
     private PanelContainer? _panel;
+    private VBoxContainer? _body;
     private Label? _content;
     private Button? _button;
+    private Button? _collapseButton;
     private bool _busy;
+    private bool _collapsed;
 
     public AdvisorOverlay(LlmConfig config, ILlmAdvisor advisor)
     {
@@ -72,10 +75,23 @@ public sealed class AdvisorOverlay
         vbox.AddThemeConstantOverride("separation", 8);
         _panel.AddChild(vbox);
 
+        // Title row: title label (expands) + a collapse toggle on the right.
+        var titleRow = new HBoxContainer();
         var title = new Label { Text = "STS2 AI Advisor" };
         title.AddThemeFontSizeOverride("font_size", 22);
         title.AddThemeColorOverride("font_color", ClrHeader);
-        vbox.AddChild(title);
+        title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
+        titleRow.AddChild(title);
+
+        _collapseButton = new Button { Text = "—", TooltipText = "收起 / 展开" };
+        _collapseButton.Pressed += OnToggleCollapse;
+        titleRow.AddChild(_collapseButton);
+        vbox.AddChild(titleRow);
+
+        // Collapsible body: the content label + the "获取建议" button.
+        _body = new VBoxContainer();
+        _body.AddThemeConstantOverride("separation", 8);
+        vbox.AddChild(_body);
 
         _content = new Label
         {
@@ -84,11 +100,11 @@ public sealed class AdvisorOverlay
             CustomMinimumSize = new Vector2(380, 0),
         };
         _content.AddThemeColorOverride("font_color", ClrBody);
-        vbox.AddChild(_content);
+        _body.AddChild(_content);
 
         _button = new Button { Text = "获取建议" };
         _button.Pressed += OnButtonPressed;
-        vbox.AddChild(_button);
+        _body.AddChild(_button);
 
         _layer.AddChild(_panel);
         tree.Root.CallDeferred("add_child", _layer);
@@ -101,6 +117,14 @@ public sealed class AdvisorOverlay
         EnsureBuilt();
         if (_panel != null) _panel.Visible = true;
         if (_layer != null) _layer.Visible = true;
+    }
+
+    /// <summary>Collapse/expand the body so the panel can be tucked away to a small title bar.</summary>
+    private void OnToggleCollapse()
+    {
+        _collapsed = !_collapsed;
+        if (_body != null) _body.Visible = !_collapsed;
+        if (_collapseButton != null) _collapseButton.Text = _collapsed ? "+" : "—";
     }
 
     private void OnButtonPressed()
@@ -117,6 +141,10 @@ public sealed class AdvisorOverlay
         _busy = true;
         SetButtonEnabled(false);
         SetContent("思考中…");
+
+        // Dev aid (config dumpCards=true): dump the real card DB once to ground the archetype tags.
+        if (_config.DumpCards)
+            GameStateReader.DumpAllCards();
 
         // We are already on the game thread (Godot fires Pressed there): read state inline.
         GameState state;
@@ -188,8 +216,13 @@ public sealed class AdvisorOverlay
             if (!string.IsNullOrEmpty(c.Id) && !nameById.ContainsKey(c.Id))
                 nameById[c.Id] = string.IsNullOrWhiteSpace(c.Name) ? c.Id : c.Name;
         }
+        // The "take no card" option comes back as cardId "SKIP" — show a localized label for it.
+        bool zh = !string.IsNullOrEmpty(state.Locale) && state.Locale.Trim().ToLowerInvariant().StartsWith("zh");
+        nameById["SKIP"] = zh ? "跳过(不拿任何牌)" : "Skip (take nothing)";
 
         var sb = new StringBuilder();
+        if (!string.IsNullOrWhiteSpace(result.DeckSummary))
+            sb.AppendLine(result.DeckSummary).AppendLine();
         if (!string.IsNullOrWhiteSpace(result.Summary))
             sb.AppendLine(result.Summary).AppendLine();
 

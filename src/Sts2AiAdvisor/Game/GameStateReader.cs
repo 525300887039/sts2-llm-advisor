@@ -2,6 +2,9 @@
 // sts2-advisor's GameStateReader (MIT). Original code from neither repo was copied verbatim.
 using System;
 using System.Collections.Generic;
+using System.IO;
+using System.Reflection;
+using System.Text;
 using MegaCrit.Sts2.Core.Context;
 using MegaCrit.Sts2.Core.Entities.Cards;
 using MegaCrit.Sts2.Core.Entities.Players;
@@ -18,6 +21,7 @@ internal static class GameStateReader
 {
     private static readonly object Gate = new();
     private static IReadOnlyList<CardCreationResult>? _lastCardOptionsField;
+    private static bool _cardsDumped;
 
     /// <summary>Card-reward options stashed by the Harmony hook (thread-safe).</summary>
     public static IReadOnlyList<CardCreationResult>? LastCardOptions
@@ -78,7 +82,11 @@ internal static class GameStateReader
     {
         try
         {
-            return player.Character?.Id?.Entry?.ToLowerInvariant() ?? "unknown";
+            string raw = player.Character?.Id?.Entry?.ToLowerInvariant() ?? "unknown";
+            // Game ids look like "character.regent" / "CHARACTER.REGENT" — normalize to the short name
+            // ("regent") so it matches the archetype guide keys.
+            int dot = raw.LastIndexOf('.');
+            return dot >= 0 && dot < raw.Length - 1 ? raw.Substring(dot + 1) : raw;
         }
         catch (Exception ex)
         {
@@ -154,6 +162,13 @@ internal static class GameStateReader
             Type = SafeString(() => card.Type.ToString()),
             Rarity = SafeString(() => card.Rarity.ToString()),
             Cost = SafeInt(() => card.EnergyCost?.Canonical ?? 0),
+            // Mechanics (best-effort, reflection-based so unverified members degrade gracefully).
+            Description = CardReflection.ReadDescription(card),
+            Keywords = CardReflection.ReadStringList(card, "Keywords"),
+            Tags = CardReflection.ReadStringList(card, "Tags"),
+            TargetType = CardReflection.ReadTargetType(card),
+            Damage = CardReflection.ReadDynamicValue(card, "damage"),
+            Block = CardReflection.ReadDynamicValue(card, "block"),
         };
         info.Upgraded = card.Id?.Entry?.EndsWith("+", StringComparison.Ordinal) == true;
         return info;
@@ -182,6 +197,44 @@ internal static class GameStateReader
         {
             ModLog.Error("ReadLocale failed", ex);
             return "";
+        }
+    }
+
+    /// <summary>
+    /// One-time dev aid (config <c>dumpCards: true</c>): dump the real card DB — id / tags / keywords /
+    /// description — so the archetype tag vocabulary can be re-grounded on the installed game version.
+    /// MUST be called on the game thread (touches game models). Writes cards_dump.txt beside the DLL.
+    /// </summary>
+    public static void DumpAllCards()
+    {
+        if (_cardsDumped) return;
+        _cardsDumped = true;
+        try
+        {
+            var sb = new StringBuilder();
+            int n = 0;
+            foreach (object card in CardReflection.EnumerateAllCards())
+            {
+                string id = CardReflection.ReadId(card);
+                if (string.IsNullOrEmpty(id)) continue;
+                List<string> tags = CardReflection.ReadStringList(card, "Tags");
+                List<string> kw = CardReflection.ReadStringList(card, "Keywords");
+                string desc = CardReflection.ReadDescription(card);
+                sb.Append(id)
+                  .Append(" | tags=[").Append(string.Join(",", tags)).Append(']')
+                  .Append(" | keywords=[").Append(string.Join(",", kw)).Append(']')
+                  .Append(" | ").Append(desc)
+                  .AppendLine();
+                n++;
+            }
+            string dir = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location) ?? AppContext.BaseDirectory;
+            string path = Path.Combine(dir, "cards_dump.txt");
+            File.WriteAllText(path, sb.ToString());
+            ModLog.Info($"DumpAllCards: wrote {n} cards to {path}");
+        }
+        catch (Exception ex)
+        {
+            ModLog.Error("DumpAllCards failed", ex);
         }
     }
 

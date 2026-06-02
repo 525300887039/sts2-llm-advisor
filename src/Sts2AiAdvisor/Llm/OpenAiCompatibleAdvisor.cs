@@ -4,10 +4,10 @@ using System.Net.Http;
 using System.Net.Http.Headers;
 using System.Text;
 using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
 using Sts2AiAdvisor.Game;
+using Sts2AiAdvisor.Game.Archetypes;
 
 namespace Sts2AiAdvisor.Llm;
 
@@ -20,22 +20,18 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
     // One shared client for the process; the request carries its own auth header per call.
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(90) };
 
-    private static readonly JsonSerializerOptions PromptJson = new()
-    {
-        WriteIndented = true,
-        DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull,
-    };
-
     private static readonly JsonSerializerOptions ParseJson = new()
     {
         PropertyNameCaseInsensitive = true,
     };
 
     private readonly LlmConfig _config;
+    private readonly ArchetypeGuide _guide;
 
-    public OpenAiCompatibleAdvisor(LlmConfig config)
+    public OpenAiCompatibleAdvisor(LlmConfig config, ArchetypeGuide? guide = null)
     {
         _config = config ?? throw new ArgumentNullException(nameof(config));
+        _guide = guide ?? new ArchetypeGuide();
     }
 
     public async Task<AdviceResult> GetAdviceAsync(AdviceRequest req, CancellationToken ct)
@@ -43,8 +39,9 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
         if (!_config.IsValid)
             throw new InvalidOperationException("LLM config is invalid (missing apiKey or baseUrl).");
 
+        DeckAnalysis analysis = DeckAnalyzer.Analyze(req.State.Character, req.State.DeckCards);
         string systemPrompt = BuildSystemPrompt(req.State.Locale);
-        string userPrompt = BuildUserPrompt(req.State);
+        string userPrompt = BuildUserPrompt(req.State, analysis);
 
         var body = new
         {
@@ -78,16 +75,27 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
             throw new HttpRequestException($"LLM HTTP {(int)resp.StatusCode}: {Truncate(respText, 400)}");
 
         string content = ExtractContent(respText);
-        return ParseAdvice(content);
+        AdviceResult parsed = ParseAdvice(content);
+        return parsed with { DeckSummary = BuildArchetypeLabel(parsed.Archetype, analysis, req.State.Locale) };
     }
 
     private static string BuildSystemPrompt(string locale)
     {
-        return "You are an expert Slay the Spire 2 coach. Given the player's run state and the cards "
-            + "offered as a reward, advise which to pick. Reply with a SINGLE JSON object of the form: "
-            + "{\"cards\":[{\"cardId\":\"<id>\",\"grade\":\"S|A|B|C|D|F\",\"reason\":\"<short>\","
-            + "\"recommended\":true|false}],\"summary\":\"<one-line overall recommendation>\"}. "
-            + "Use the exact cardId values from the offered cards. Keep reasons concise."
+        return "You are an expert Slay the Spire 2 coach. You are given the player's run context, a "
+            + "summary of their current deck (card list + type/energy/keyword/tag histograms), the "
+            + "character's known archetypes for reference, and the reward cards offered — each with its "
+            + "real in-game effect text, keywords and tags. "
+            + "FIRST infer the deck's current direction/archetype from its cards and keywords. "
+            + "THEN grade each offered card RELATIVE to that direction and the run context (act, HP, "
+            + "ascension), favoring cards that advance a viable archetype or fix a critical weakness, and "
+            + "calling out anti-synergy or trap cards. "
+            + "SKIP (taking no card) is ALWAYS a valid option: include it as a graded entry with cardId "
+            + "\"SKIP\", and recommend it when every offered card would dilute the deck or none is worth it. "
+            + "Reply with a SINGLE JSON object of the form: {\"archetype\":\"<short deck direction + a few "
+            + "words why>\",\"cards\":[{\"cardId\":\"<id or SKIP>\",\"grade\":\"S|A|B|C|D|F\",\"reason\":"
+            + "\"<short, cite the concrete mechanic/synergy>\",\"recommended\":true|false}],\"summary\":"
+            + "\"<one-line overall recommendation>\"}. Use the exact cardId values from the offered cards "
+            + "(or \"SKIP\"). Keep reasons concise and concrete."
             + LanguageDirective(locale);
     }
 
@@ -100,9 +108,9 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
             // Unknown code: still tell the model to match the game's locale so it can adapt.
             return string.IsNullOrWhiteSpace(locale)
                 ? ""
-                : $" IMPORTANT: Write every \"reason\" and the \"summary\" in the game's UI language (locale code \"{locale}\"). Keep cardId values and grade letters unchanged.";
+                : $" IMPORTANT: Write the \"archetype\", every \"reason\" and the \"summary\" in the game's UI language (locale code \"{locale}\"). Keep cardId values and grade letters unchanged.";
         }
-        return $" IMPORTANT: Write every \"reason\" and the \"summary\" in {lang}. Keep cardId values and grade letters unchanged.";
+        return $" IMPORTANT: Write the \"archetype\", every \"reason\" and the \"summary\" in {lang}. Keep cardId values and grade letters unchanged.";
     }
 
     /// <summary>Map a Godot/STS2 locale code to an explicit language name for the prompt.</summary>
@@ -128,14 +136,36 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
         return "";
     }
 
-    private static string BuildUserPrompt(GameState state)
+    private string BuildUserPrompt(GameState state, DeckAnalysis analysis)
     {
-        string stateJson = JsonSerializer.Serialize(state, PromptJson);
         var sb = new StringBuilder();
-        sb.AppendLine("Current run state (JSON):");
-        sb.AppendLine(stateJson);
+
+        sb.AppendLine("## Run context");
+        sb.Append("Character: ").Append(state.Character)
+          .Append(" | Act ").Append(state.ActNumber)
+          .Append(" | Floor ").Append(state.Floor)
+          .Append(" | HP ").Append(state.CurrentHP).Append('/').Append(state.MaxHP)
+          .Append(" | Gold ").Append(state.Gold)
+          .Append(" | Ascension ").Append(state.AscensionLevel)
+          .AppendLine();
+        if (state.Relics.Count > 0)
+            sb.Append("Relics: ").AppendLine(string.Join(", ", state.Relics.ConvertAll(r => r.Name)));
         sb.AppendLine();
-        sb.AppendLine("Offered cards to choose from (cardId list):");
+
+        sb.AppendLine("## Current deck");
+        sb.AppendLine(DescribeDeck(analysis, state.DeckCards));
+        sb.AppendLine();
+
+        string menu = BuildCharacterArchetypes(state.Character);
+        if (!string.IsNullOrWhiteSpace(menu))
+        {
+            sb.Append("## Known archetypes for ").Append(state.Character)
+              .AppendLine(" (reference — pick the one that fits, if any)");
+            sb.AppendLine(menu);
+            sb.AppendLine();
+        }
+
+        sb.AppendLine("## Offered cards (choose ONE, or SKIP)");
         if (state.OfferedCards.Count == 0)
         {
             sb.AppendLine("(none detected)");
@@ -143,11 +173,101 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
         else
         {
             foreach (CardInfo c in state.OfferedCards)
-                sb.AppendLine($"- {c.Id} ({c.Name}, {c.Rarity} {c.Type}, cost {c.Cost})");
+            {
+                sb.Append("- ").Append(c.Id)
+                  .Append(" (").Append(c.Name).Append(", ")
+                  .Append(c.Rarity).Append(' ').Append(c.Type)
+                  .Append(", cost ").Append(c.Cost);
+                if (c.Upgraded) sb.Append(", upgraded");
+                if (!string.IsNullOrEmpty(c.TargetType)) sb.Append(", target ").Append(c.TargetType);
+                sb.AppendLine(")");
+                if (!string.IsNullOrWhiteSpace(c.Description))
+                    sb.Append("    Effect: ").AppendLine(c.Description);
+                if (c.Keywords.Count > 0)
+                    sb.Append("    Keywords: ").AppendLine(string.Join(", ", c.Keywords));
+                if (c.Tags.Count > 0)
+                    sb.Append("    Tags: ").AppendLine(string.Join(", ", c.Tags));
+            }
+            sb.AppendLine("- SKIP (take no card — keep the deck lean; a valid pick when nothing improves the deck)");
         }
         sb.AppendLine();
-        sb.AppendLine("Grade each offered card and recommend the best pick.");
+        sb.AppendLine("First infer this deck's direction/archetype, then grade each offered card AND the SKIP option relative to it and the run context; recommend the single best choice.");
         return sb.ToString();
+    }
+
+    /// <summary>Compact deck summary: counts, energy curve, real tags + keywords, and the card list (by name).</summary>
+    private static string DescribeDeck(DeckAnalysis a, IReadOnlyList<CardInfo> deck)
+    {
+        var sb = new StringBuilder();
+        sb.Append("Size ").Append(a.TotalCards)
+          .Append(" (Attack ").Append(a.AttackCount)
+          .Append(" / Skill ").Append(a.SkillCount)
+          .Append(" / Power ").Append(a.PowerCount)
+          .Append("), avg cost ").Append(a.AverageCost.ToString("0.0")).Append('.').AppendLine();
+
+        var curve = new List<string>();
+        for (int i = 0; i <= 5; i++)
+            if (a.EnergyCurve.TryGetValue(i, out int cnt) && cnt > 0)
+                curve.Add(i == 5 ? $"5+:{cnt}" : $"{i}:{cnt}");
+        if (curve.Count > 0)
+            sb.Append("Energy curve ").Append(string.Join(", ", curve)).Append('.').AppendLine();
+
+        AppendTop(sb, "Keywords", a.KeywordCounts, 10);
+        AppendTop(sb, "Tags", a.TagCounts, 8);
+
+        // Card list by name (deduped with counts) — the strongest archetype signal the model can read.
+        if (deck != null && deck.Count > 0)
+        {
+            var nameCounts = new Dictionary<string, int>(StringComparer.Ordinal);
+            var order = new List<string>();
+            foreach (CardInfo c in deck)
+            {
+                string name = string.IsNullOrWhiteSpace(c.Name) ? c.Id : c.Name;
+                if (!nameCounts.ContainsKey(name)) { nameCounts[name] = 0; order.Add(name); }
+                nameCounts[name]++;
+            }
+            var parts = new List<string>();
+            foreach (string name in order)
+                parts.Add(nameCounts[name] > 1 ? $"{name} x{nameCounts[name]}" : name);
+            sb.Append("Cards: ").Append(string.Join(", ", parts)).Append('.');
+        }
+        return sb.ToString();
+    }
+
+    private static void AppendTop(StringBuilder sb, string label, Dictionary<string, int> counts, int max)
+    {
+        if (counts.Count == 0) return;
+        var list = new List<KeyValuePair<string, int>>(counts);
+        list.Sort((x, y) => y.Value.CompareTo(x.Value));
+        var top = new List<string>();
+        for (int i = 0; i < list.Count && i < max; i++) top.Add($"{list[i].Key} x{list[i].Value}");
+        sb.Append(label).Append(": ").Append(string.Join(", ", top)).Append('.').AppendLine();
+    }
+
+    /// <summary>The character's full curated archetype menu (C layer), handed to the model as reference.</summary>
+    private string BuildCharacterArchetypes(string character)
+    {
+        var sb = new StringBuilder();
+        foreach (ArchetypeGuideEntry e in _guide.ForCharacter(character))
+        {
+            sb.Append("- ").Append(e.Name).Append(": win = ").Append(e.Win)
+              .Append(" | prioritize = ").Append(e.Priorities).AppendLine();
+        }
+        return sb.ToString().TrimEnd();
+    }
+
+    /// <summary>Locale-prefixed archetype line for the panel, preferring the model's inference, then
+    /// the local tag-based detection, then a neutral fallback.</summary>
+    private static string BuildArchetypeLabel(string llmArchetype, DeckAnalysis a, string locale)
+    {
+        bool zh = !string.IsNullOrEmpty(locale) && locale.Trim().ToLowerInvariant().StartsWith("zh");
+        string prefix = zh ? "流派" : "Archetype";
+        string body = (llmArchetype ?? "").Trim();
+        if (body.Length == 0 && a.DetectedArchetypes.Count > 0)
+            body = a.DetectedArchetypes[0].Archetype.DisplayName;
+        if (body.Length == 0)
+            body = zh ? "暂不明显(早期/灵活牌组)" : "unclear (early/flexible deck)";
+        return $"{prefix}: {body}";
     }
 
     private static string ExtractContent(string respText)
@@ -177,6 +297,7 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
     {
         var cards = new List<CardAdvice>();
         string summary = "";
+        string archetype = "";
         try
         {
             using JsonDocument doc = JsonDocument.Parse(content);
@@ -186,6 +307,12 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
                 && summaryEl.ValueKind == JsonValueKind.String)
             {
                 summary = summaryEl.GetString() ?? "";
+            }
+
+            if (root.TryGetProperty("archetype", out JsonElement archEl)
+                && archEl.ValueKind == JsonValueKind.String)
+            {
+                archetype = archEl.GetString() ?? "";
             }
 
             if (root.TryGetProperty("cards", out JsonElement cardsEl)
@@ -210,7 +337,7 @@ public sealed class OpenAiCompatibleAdvisor : ILlmAdvisor
         if (cards.Count == 0 && string.IsNullOrWhiteSpace(summary))
             summary = content;
 
-        return new AdviceResult(cards, summary);
+        return new AdviceResult(cards, summary, "", archetype);
     }
 
     private static string ReadString(JsonElement obj, string name)

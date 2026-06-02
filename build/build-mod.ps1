@@ -22,6 +22,7 @@ $builderScript  = Join-Path $builderDir "build_pck.gd"
 $manifestSource = Join-Path $projectDir "mod_manifest.json"
 $modIdSource    = Join-Path $projectDir "mod_id.json"
 $configExample  = Join-Path $projectDir "config.example.json"
+$archetypesSrc  = Join-Path $projectDir "$modName.archetypes.json"
 $stagingDir     = Join-Path $repoRoot "build/mods/$modName"
 $pckOutput      = Join-Path $stagingDir "$modName.pck"
 $dllSource      = Join-Path $buildOutputDir "$modName.dll"
@@ -67,6 +68,8 @@ Copy-Item -Force $dllSource    (Join-Path $modsDir "$modName.dll")
 Copy-Item -Force $pckOutput    (Join-Path $modsDir "$modName.pck")
 Copy-Item -Force $modIdSource  (Join-Path $modsDir "$modName.json")
 Copy-Item -Force $configExample (Join-Path $modsDir "config.example.json")
+# Archetype cheat-sheet (C layer): loose JSON beside the DLL, hot-updatable without repacking the PCK.
+Copy-Item -Force $archetypesSrc (Join-Path $modsDir "$modName.archetypes.json")
 
 Write-Host "[build-mod] Done. Using Godot: $GodotExe"
 Write-Host "[build-mod] Installed:"
@@ -74,4 +77,5 @@ Write-Host "  $(Join-Path $modsDir "$modName.dll")"
 Write-Host "  $(Join-Path $modsDir "$modName.pck")"
 Write-Host "  $(Join-Path $modsDir "$modName.json")"
 Write-Host "  $(Join-Path $modsDir "config.example.json")"
+Write-Host "  $(Join-Path $modsDir "$modName.archetypes.json")"
 Write-Host "[build-mod] Rename config.example.json -> config.json and set your apiKey to enable advice."

@@ -12,6 +12,10 @@ public sealed class LlmConfig
     public string ApiKey { get; set; } = "";
     public string Model { get; set; } = "deepseek-chat";
 
+    /// <summary>Dev aid: when true, the first "获取建议" click dumps the full card DB to cards_dump.txt
+    /// (beside the DLL) so the archetype tag vocabulary can be re-grounded on the installed version.</summary>
+    public bool DumpCards { get; set; }
+
     /// <summary>True when an API key is present and the endpoint looks usable.</summary>
     public bool IsValid => !string.IsNullOrWhiteSpace(ApiKey) && !string.IsNullOrWhiteSpace(BaseUrl);
 

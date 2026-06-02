@@ -1,5 +1,6 @@
 {
   "baseUrl": "https://opencode.ai/zen/go/v1",
   "apiKey": "",
-  "model": "deepseek-v4-flash"
+  "model": "deepseek-v4-flash",
+  "dumpCards": false
 }

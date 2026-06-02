@@ -1,0 +1,136 @@
+{
+  "updated": "2026-06-01",
+  "_note": "Hand-curated from slaythespire2.gg / community guides (2026-06). Keys = character.archetypeId, matching ArchetypeDefinitions. Strings are LLM context (English); the model outputs in the game's language. Refresh per patch; regent/necrobinder marked low-confidence.",
+  "archetypes": {
+    "ironclad.strength": {
+      "name": "Strength",
+      "win": "Stack Strength, then multiply it across multi-hit attacks to snowball single-target and AoE damage.",
+      "priorities": "Strength generators and multi-hit attacks; Strength retention; ways to apply Vulnerable. Avoid one-shot Strength that wears off.",
+      "confidence": "ok"
+    },
+    "ironclad.exhaust": {
+      "name": "Exhaust",
+      "win": "Turn exhausting cards into value engines and a thin, powerful deck; payoff cards reward each exhaust.",
+      "priorities": "Exhaust payoffs and reliable card draw; fuel to exhaust; don't dilute with dead cards.",
+      "confidence": "ok"
+    },
+    "ironclad.block": {
+      "name": "Block / Barricade",
+      "win": "Retain block across turns (Barricade-style) and convert accumulated block into damage; outlast everything.",
+      "priorities": "Block retention, Dexterity, and block-to-damage payoffs; enough offense to close.",
+      "confidence": "ok"
+    },
+    "ironclad.self_damage": {
+      "name": "Self-Damage / Corruption",
+      "win": "Pay HP / cheapen skills to power an explosive, low-cost engine; lifesteal or block keeps you alive.",
+      "priorities": "Cost reducers, HP sustain, and big payoffs; pair with Exhaust/Strength. Watch your HP buffer.",
+      "confidence": "ok"
+    },
+
+    "silent.poison": {
+      "name": "Poison",
+      "win": "Apply poison with cheap skills, then multiply it (Catalyst-style) so stacks kill bosses over a few turns.",
+      "priorities": "Cheap poison applicators and poison multipliers; a little Weak/block to survive the ramp; relics that boost or spread poison.",
+      "confidence": "ok"
+    },
+    "silent.shiv": {
+      "name": "Shiv",
+      "win": "Generate many Shivs per turn and trigger 'when you play an attack / 0-cost' payoffs for explosive value.",
+      "priorities": "Shiv generators, Shiv/attack payoffs (Dexterity, extra-attack triggers), and draw/cycle to keep the engine fed.",
+      "confidence": "ok"
+    },
+    "silent.discard": {
+      "name": "Discard / Sly",
+      "win": "Cycle a thin deck fast; discard triggers Sly cards for free and fuels discard payoffs.",
+      "priorities": "Discard enablers + draw; Sly/discard payoffs; keep the deck thin so cycling stays reliable.",
+      "confidence": "ok"
+    },
+    "silent.dexterity": {
+      "name": "Dexterity / Block",
+      "win": "Scale Dexterity so cheap skills give large block; tank hits and chip the enemy down.",
+      "priorities": "Dexterity sources and cheap block/skills; some scaling damage to avoid stalling.",
+      "confidence": "ok"
+    },
+
+    "defect.lightning": {
+      "name": "Lightning Orbs",
+      "win": "Channel Lightning and pump Focus so passive/evoke lightning clears rooms and pressures bosses.",
+      "priorities": "Lightning channelers, Focus, and orb slots/evoke payoffs; block to survive the setup turns.",
+      "confidence": "ok"
+    },
+    "defect.frost": {
+      "name": "Frost / Focus",
+      "win": "Stack Frost block + Focus to become unkillable, then close with scaling damage.",
+      "priorities": "Frost channelers, Focus, orb slots; a reliable damage finisher so you don't stall.",
+      "confidence": "ok"
+    },
+    "defect.dark": {
+      "name": "Dark Orbs",
+      "win": "Grow Dark orbs each turn and evoke for one huge hit; Focus accelerates the ramp.",
+      "priorities": "Dark channelers, Focus, evoke and orb-slot support; defense to survive the ramp.",
+      "confidence": "ok"
+    },
+    "defect.all_orbs": {
+      "name": "All Orbs / Focus",
+      "win": "Generic Focus + orb-slot shell that flexes into whatever orbs the run offers.",
+      "priorities": "Focus, orb slots, channel/evoke flexibility; take the best orb payoffs offered.",
+      "confidence": "ok"
+    },
+    "defect.zero_cost": {
+      "name": "0-Cost",
+      "win": "Chain 0-cost cards with draw and per-card-play payoffs for big free turns.",
+      "priorities": "0-cost cards, heavy draw, and 'when you play a card' payoffs; keep deck thin.",
+      "confidence": "ok"
+    },
+
+    "regent.stellar": {
+      "name": "Stellar / Stars",
+      "win": "Build up Stars/Stellar resources and spend them on scaling payoffs.",
+      "priorities": "Stellar/star generators and payoffs, draw to find them, and defense while ramping.",
+      "confidence": "low — Regent is newer; validate against current patch"
+    },
+    "regent.authority": {
+      "name": "Authority / Forge",
+      "win": "Accumulate Authority/Forge buffs into a scaling damage or value engine.",
+      "priorities": "Authority/Forge sources and scaling payoffs; survive the setup.",
+      "confidence": "low — Regent is newer; validate against current patch"
+    },
+    "regent.minion": {
+      "name": "Minion / Summoner",
+      "win": "Field minions that deal damage / block for you and scale with summon payoffs.",
+      "priorities": "Reliable summons, minion buffs/payoffs, and protection to keep them alive.",
+      "confidence": "low — Regent is newer; validate against current patch"
+    },
+    "regent.cosmic": {
+      "name": "Cosmic Damage",
+      "win": "Leverage Cosmic/AoE payoffs to clear multi-enemy rooms and burst bosses.",
+      "priorities": "Cosmic/AoE sources and scaling; defense for slower fights.",
+      "confidence": "low — Regent is newer; validate against current patch"
+    },
+
+    "necrobinder.doom": {
+      "name": "Doom / Debuff",
+      "win": "Stack debuffs/Doom on enemies so they collapse under accumulated pressure.",
+      "priorities": "Doom/debuff appliers and scaling payoffs; block to outlast the ramp.",
+      "confidence": "low — Necrobinder is newer; validate against current patch"
+    },
+    "necrobinder.soul": {
+      "name": "Soul / Exhaust Cycling",
+      "win": "Spend/recycle Souls via exhaust loops to fuel a repeatable engine.",
+      "priorities": "Soul generators, exhaust synergy, and draw; payoffs that reward cycling.",
+      "confidence": "low — Necrobinder is newer; validate against current patch"
+    },
+    "necrobinder.minion": {
+      "name": "Minion / Summoner",
+      "win": "Summon and buff minions to do the fighting while you support.",
+      "priorities": "Summons, minion scaling/payoffs, and protection.",
+      "confidence": "low — Necrobinder is newer; validate against current patch"
+    },
+    "necrobinder.death": {
+      "name": "Death / Reaper",
+      "win": "Convert kills/exhaust into escalating AoE death payoffs.",
+      "priorities": "Death/exhaust payoffs and AoE; sustain to survive the build-up.",
+      "confidence": "low — Necrobinder is newer; validate against current patch"
+    }
+  }
+}

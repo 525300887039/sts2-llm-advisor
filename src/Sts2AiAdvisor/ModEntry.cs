@@ -29,9 +29,10 @@ public static class ModEntry
             // Capture the game thread for later marshalling. Init() runs on the game thread.
             GameThread.Initialize();
 
-            // LLM layer.
+            // LLM layer (+ curated archetype cheat-sheet for richer prompts).
             LlmConfig config = LlmConfig.Load();
-            ILlmAdvisor advisor = new OpenAiCompatibleAdvisor(config);
+            ArchetypeGuide archetypeGuide = ArchetypeGuide.Load();
+            ILlmAdvisor advisor = new OpenAiCompatibleAdvisor(config, archetypeGuide);
 
             // Overlay (built lazily when the SceneTree is ready / first card reward).
             _overlay = new AdvisorOverlay(config, advisor);

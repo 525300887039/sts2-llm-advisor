@@ -1,0 +1,3 @@
+{"file": ".trellis/spec/sts2-mod/index.md", "reason": "Quality Check 清单:0 警告 0 错误、AGPL 独立重写核验、主线程/离线程边界、无范围蔓延、降级而非崩溃"}
+{"file": ".trellis/tasks/06-01-advice-quality/research/card-mechanics-data-sources.md", "reason": "核验 A 层机制读取是否按研究的 API + 反射回退实现、CardInfo 字段是否齐全"}
+{"file": ".trellis/tasks/06-01-advice-quality/research/archetype-and-freshness.md", "reason": "核验 B/C 是否运行时自算/接地真实 tag、流派表非照抄旧快照、不在运行时联网抓站"}
