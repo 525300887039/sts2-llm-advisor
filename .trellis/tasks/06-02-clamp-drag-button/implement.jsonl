@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/sts2-mod/index.md", "reason": "浮层 UI 约定(收起为小按钮/GuiInput 拖动/展开跟随、二者共享右上角 offset 参照系)是本改动的直接上下文;夹紧逻辑必须与该 offset 语义一致,且遵守'游戏对象只在主线程访问'"}

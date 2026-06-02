@@ -179,6 +179,44 @@ public sealed class AdvisorOverlay
         _panel.OffsetLeft = right - width;
         _panel.OffsetTop = top;
         _panel.OffsetBottom = top + height;
+
+        // Keep the whole panel on-screen: when the button was tucked near the left/top edge the
+        // panel would otherwise grow off-screen (it extends left/down from that corner) and vanish.
+        ClampToViewport(_panel);
+    }
+
+    /// <summary>
+    /// Clamp a top-right-anchored control's offsets so its rect stays fully inside the viewport
+    /// (with a small margin), so neither the draggable button nor the expanded panel can be lost
+    /// off-screen. If the control is larger than the viewport, its top-left is pinned to the margin.
+    /// Game-thread only (reads the live viewport); width/height are preserved.
+    /// </summary>
+    private static void ClampToViewport(Control c)
+    {
+        if (c == null || !GodotObject.IsInstanceValid(c)) return;
+
+        const float margin = 8f;
+        Vector2 vp = c.GetViewportRect().Size;
+        // Use the real rendered size, not the offset-defined min: the panel grows to content height
+        // (GrowVertical=End), so offset height understates it and a tall panel would clear the clamp.
+        Vector2 size = c.GetCombinedMinimumSize();
+        float w = Math.Max(c.Size.X, size.X);
+        float h = Math.Max(c.Size.Y, size.Y);
+
+        // Top-left in viewport coords (x is measured from the right edge for a right-anchored control).
+        float left = vp.X + c.OffsetLeft;
+        float top = c.OffsetTop;
+
+        float maxLeft = vp.X - margin - w;
+        left = maxLeft >= margin ? Math.Clamp(left, margin, maxLeft) : margin;
+
+        float maxTop = vp.Y - margin - h;
+        top = maxTop >= margin ? Math.Clamp(top, margin, maxTop) : margin;
+
+        c.OffsetLeft = left - vp.X;
+        c.OffsetRight = c.OffsetLeft + w;
+        c.OffsetTop = top;
+        c.OffsetBottom = top + h;
     }
 
     /// <summary>Show exactly one of {full panel, small collapsed button} per the collapsed flag.</summary>
@@ -230,6 +268,7 @@ public sealed class AdvisorOverlay
                 _collapsedButton.OffsetRight += mm.Relative.X;
                 _collapsedButton.OffsetTop += mm.Relative.Y;
                 _collapsedButton.OffsetBottom += mm.Relative.Y;
+                ClampToViewport(_collapsedButton); // never let the button leave the screen
                 _dragTotal += mm.Relative;
                 if (_dragTotal.Length() > clickSlop)
                     _dragMoved = true;
@@ -365,6 +404,19 @@ public sealed class AdvisorOverlay
     {
         if (_content != null && GodotObject.IsInstanceValid(_content))
             _content.Text = text;
+        ReclampPanelDeferred();
+    }
+
+    /// <summary>
+    /// After the panel's content changes height (e.g. advice text arrives), re-clamp it so a panel
+    /// pinned near the bottom of the screen grows UPWARD instead of pushing new text off the bottom
+    /// edge. Deferred so the new text has been laid out before measuring. No-op while collapsed.
+    /// </summary>
+    private void ReclampPanelDeferred()
+    {
+        if (_collapsed || _panel == null || !GodotObject.IsInstanceValid(_panel) || !_panel.Visible)
+            return;
+        Callable.From(() => ClampToViewport(_panel)).CallDeferred();
     }
 
     private void SetButtonEnabled(bool enabled)

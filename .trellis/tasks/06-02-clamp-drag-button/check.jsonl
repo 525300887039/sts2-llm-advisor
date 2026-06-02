@@ -1,0 +1,1 @@
+{"file": ".trellis/spec/sts2-mod/index.md", "reason": "核对改动是否满足浮层 UI 约定与 Quality Check(dotnet build 0/0、主线程访问游戏对象、展开跟随位置行为不被破坏)"}
