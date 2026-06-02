@@ -66,6 +66,9 @@ build/build-mod.ps1       dotnet build → 打 PCK → 拷 DLL/PCK/manifest/conf
 - **收起 = 缩成一个小按钮**(不是只藏正文):折叠时整个 `_panel` 隐藏,另显一个独立小按钮(同样锚右上)。`ApplyCollapsedState()` 切换两者可见性;`Show()` 尊重当前折叠态(再次进选牌页不会强行弹大面板)。
 - **小按钮可自由拖动**:用 `GuiInput`(不接 `Pressed`)自己分辨点击/拖动 —— 左键按下记起点;`InputEventMouseMotion` 时按 `mm.Relative` 同时平移四个 `Offset*`(锚右上,offset 即相对右上角,直接加减即可);**累计位移 >5px 判为拖动**,否则松手视为点击 → 展开;每个事件 `AcceptEvent()` 吞掉,避免 Button 自身触发。左键按住期间 viewport 会把 motion 持续路由给该控件,快速拖动也跟手。
 - **展开跟随小按钮位置**:`_panel` 与小按钮**共享右上角锚的 offset 参照系**,展开时把 panel 右上角 offset 对齐到小按钮当前 offset(保宽高,向左下展开)→ 面板出现在被拖到的位置,不弹回原位。面板只会被小按钮带着走、不独立移动,故折叠/拖动/展开位置一路一致。
+- **视口边界夹紧(06-02)**:`ClampToViewport(Control)` 把右上锚控件的 offset 夹到视口内(留 8px 边距,夹不下则顶左角对齐边距)。三处调用:拖动小按钮后、`SyncPanelToCollapsedButton` 末尾、以及**内容变化后**(`SetContent` → `ReclampPanelDeferred`,延迟一帧)。两个坑:
+  - **必须用真实尺寸**:`max(Size, GetCombinedMinimumSize())`,**不能**用 `OffsetBottom-OffsetTop`——`GrowVertical=End` 的面板 offset 高只是占位最小值(~40px),拿它夹底会漏判,高面板照样溢出底部。
+  - **内容增高要重夹 = 实现"向上展开"**:面板顶边固定、向下长,贴底展开后点「获取建议」新内容会掉出屏外。`ClampToViewport` 把底边压在屏内、顶边上移,所以内容变高后重夹一次,贴底面板就**向上生长**;顶部有空间时夹紧是 no-op,不会乱跳。`SetContent` 在游戏主线程被调用(直接或经 `GameThread.InvokeAsync`),`CallDeferred` 仍在主线程。
 
 ## 部署与运行时(进游戏实测踩坑,务必遵守)
 
