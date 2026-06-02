@@ -42,3 +42,39 @@
 ### Next Steps
 
 - None - task complete
+
+
+## Session 2: Advice quality: card mechanics + LLM archetype + draggable collapse; public AGPL release
+
+**Date**: 2026-06-02
+**Task**: Advice quality: card mechanics + LLM archetype + draggable collapse; public AGPL release
+**Branch**: `master`
+
+### Summary
+
+Injected real card mechanics and LLM-inferred deck archetype into card-pick advice; added a SKIP (take-nothing) graded option. Reworked the overlay to collapse into a draggable corner button that the expanded panel follows. Published the repo publicly under AGPL-3.0 with LICENSE + THIRD_PARTY_LICENSES, and captured the new conventions (sparse tags, reflected members, char-id normalization, manifest-scan gotcha) in the spec.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `8969cc9` | (see git log) |
+| `9c1d260` | (see git log) |
+| `3152f2b` | (see git log) |
+| `b049681` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete

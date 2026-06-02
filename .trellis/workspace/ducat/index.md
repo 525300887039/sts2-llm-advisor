@@ -8,8 +8,8 @@
 
 <!-- @@@auto:current-status -->
 - **Active File**: `journal-1.md`
-- **Total Sessions**: 1
-- **Last Active**: 2026-06-01
+- **Total Sessions**: 2
+- **Last Active**: 2026-06-02
 <!-- @@@/auto:current-status -->
 
 ---
@@ -19,7 +19,7 @@
 <!-- @@@auto:active-documents -->
 | File | Lines | Status |
 |------|-------|--------|
-| `journal-1.md` | ~44 | Active |
+| `journal-1.md` | ~80 | Active |
 <!-- @@@/auto:active-documents -->
 
 ---
@@ -29,6 +29,7 @@
 <!-- @@@auto:session-history -->
 | # | Date | Title | Commits | Branch |
 |---|------|-------|---------|--------|
+| 2 | 2026-06-02 | Advice quality: card mechanics + LLM archetype + draggable collapse; public AGPL release | `8969cc9`, `9c1d260`, `3152f2b`, `b049681` | `master` |
 | 1 | 2026-06-01 | STS2 AI 选牌建议 mod MVP:骨架 → 进游戏实测 → 语言自适应 | `73d95d6`, `86389dd`, `47c622c`, `7608053`, `5fe22e9` | `master` |
 <!-- @@@/auto:session-history -->
 
