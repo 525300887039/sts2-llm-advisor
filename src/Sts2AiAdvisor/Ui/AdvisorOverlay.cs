@@ -31,8 +31,12 @@ public sealed class AdvisorOverlay
     private Label? _content;
     private Button? _button;
     private Button? _collapseButton;
+    private Button? _collapsedButton;
     private bool _busy;
     private bool _collapsed;
+    private bool _dragging;
+    private bool _dragMoved;
+    private Vector2 _dragTotal;
 
     public AdvisorOverlay(LlmConfig config, ILlmAdvisor advisor)
     {
@@ -83,7 +87,7 @@ public sealed class AdvisorOverlay
         title.SizeFlagsHorizontal = Control.SizeFlags.ExpandFill;
         titleRow.AddChild(title);
 
-        _collapseButton = new Button { Text = "—", TooltipText = "收起 / 展开" };
+        _collapseButton = new Button { Text = "—", TooltipText = "收起为小按钮" };
         _collapseButton.Pressed += OnToggleCollapse;
         titleRow.AddChild(_collapseButton);
         vbox.AddChild(titleRow);
@@ -107,6 +111,27 @@ public sealed class AdvisorOverlay
         _body.AddChild(_button);
 
         _layer.AddChild(_panel);
+
+        // Collapsed state: a single small button tucked into the top-right corner so it stops
+        // blocking the game UI. Pressing it restores the full panel.
+        _collapsedButton = new Button
+        {
+            Text = "AI ▸",
+            TooltipText = "点击展开 · 按住拖动可移动",
+            Visible = false,
+            AnchorLeft = 1f,
+            AnchorRight = 1f,
+            AnchorTop = 0f,
+            AnchorBottom = 0f,
+            OffsetLeft = -92,
+            OffsetRight = -20,
+            OffsetTop = 20,
+            OffsetBottom = 52,
+        };
+        // Drive click-vs-drag ourselves: a clean click expands; a drag moves the button.
+        _collapsedButton.GuiInput += OnCollapsedGuiInput;
+        _layer.AddChild(_collapsedButton);
+
         tree.Root.CallDeferred("add_child", _layer);
         ModLog.Info("Advisor overlay built and attached.");
     }
@@ -115,16 +140,102 @@ public sealed class AdvisorOverlay
     public void Show()
     {
         EnsureBuilt();
-        if (_panel != null) _panel.Visible = true;
         if (_layer != null) _layer.Visible = true;
+        ApplyCollapsedState();
     }
 
-    /// <summary>Collapse/expand the body so the panel can be tucked away to a small title bar.</summary>
+    /// <summary>Collapse the whole panel down to a single small corner button.</summary>
     private void OnToggleCollapse()
     {
-        _collapsed = !_collapsed;
-        if (_body != null) _body.Visible = !_collapsed;
-        if (_collapseButton != null) _collapseButton.Text = _collapsed ? "+" : "—";
+        _collapsed = true;
+        ApplyCollapsedState();
+    }
+
+    /// <summary>Restore the full panel from the collapsed button, at the button's current spot.</summary>
+    private void OnExpand()
+    {
+        SyncPanelToCollapsedButton();
+        _collapsed = false;
+        ApplyCollapsedState();
+    }
+
+    /// <summary>
+    /// Move the full panel so its top-right corner sits where the (possibly dragged) collapsed
+    /// button is, so expanding keeps the position the user tucked it into. Both controls anchor to
+    /// the top-right corner, so their offsets share a reference frame and copy across directly.
+    /// The panel keeps its own width/height; it grows left and down from that corner.
+    /// </summary>
+    private void SyncPanelToCollapsedButton()
+    {
+        if (_panel == null || !GodotObject.IsInstanceValid(_panel)) return;
+        if (_collapsedButton == null || !GodotObject.IsInstanceValid(_collapsedButton)) return;
+
+        float width = _panel.OffsetRight - _panel.OffsetLeft;
+        float height = _panel.OffsetBottom - _panel.OffsetTop;
+        float right = _collapsedButton.OffsetRight;
+        float top = _collapsedButton.OffsetTop;
+
+        _panel.OffsetRight = right;
+        _panel.OffsetLeft = right - width;
+        _panel.OffsetTop = top;
+        _panel.OffsetBottom = top + height;
+    }
+
+    /// <summary>Show exactly one of {full panel, small collapsed button} per the collapsed flag.</summary>
+    private void ApplyCollapsedState()
+    {
+        if (_panel != null && GodotObject.IsInstanceValid(_panel))
+            _panel.Visible = !_collapsed;
+        if (_collapsedButton != null && GodotObject.IsInstanceValid(_collapsedButton))
+            _collapsedButton.Visible = _collapsed;
+    }
+
+    /// <summary>
+    /// Make the collapsed button draggable. Hold-and-drag moves it (so it can be tucked out of the
+    /// way of key info); a clean press/release with no real movement counts as a click and expands.
+    /// We handle all left-button input here and swallow it, so the Button's own click never fires.
+    /// While the left button is held, the viewport routes motion to this control even off-rect,
+    /// so fast drags still track.
+    /// </summary>
+    private void OnCollapsedGuiInput(InputEvent ev)
+    {
+        if (_collapsedButton == null || !GodotObject.IsInstanceValid(_collapsedButton))
+            return;
+
+        const float clickSlop = 5f; // total movement under this many px is still treated as a click
+
+        switch (ev)
+        {
+            case InputEventMouseButton mb when mb.ButtonIndex == MouseButton.Left:
+                if (mb.Pressed)
+                {
+                    _dragging = true;
+                    _dragMoved = false;
+                    _dragTotal = Vector2.Zero;
+                }
+                else if (_dragging)
+                {
+                    bool moved = _dragMoved;
+                    _dragging = false;
+                    if (!moved)
+                        OnExpand(); // a click, not a drag
+                }
+                _collapsedButton.AcceptEvent();
+                break;
+
+            case InputEventMouseMotion mm when _dragging:
+                // Offsets are relative to the top-right anchor; shift all four by the mouse delta
+                // to move the button without fighting the anchor system.
+                _collapsedButton.OffsetLeft += mm.Relative.X;
+                _collapsedButton.OffsetRight += mm.Relative.X;
+                _collapsedButton.OffsetTop += mm.Relative.Y;
+                _collapsedButton.OffsetBottom += mm.Relative.Y;
+                _dragTotal += mm.Relative;
+                if (_dragTotal.Length() > clickSlop)
+                    _dragMoved = true;
+                _collapsedButton.AcceptEvent();
+                break;
+        }
     }
 
     private void OnButtonPressed()
