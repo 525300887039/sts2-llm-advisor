@@ -78,3 +78,37 @@ Injected real card mechanics and LLM-inferred deck archetype into card-pick advi
 ### Next Steps
 
 - None - task complete
+
+
+## Session 3: Clamp draggable collapse button + panel within viewport; grow upward when bottom-pinned
+
+**Date**: 2026-06-02
+**Task**: Clamp draggable collapse button + panel within viewport; grow upward when bottom-pinned
+**Branch**: `master`
+
+### Summary
+
+Added ClampToViewport so the collapsed draggable button and the expanded panel stay fully on-screen (8px margin), using real rendered size (max of Size and GetCombinedMinimumSize) rather than the GrowVertical placeholder height. Re-clamp after SetContent so a bottom-pinned panel grows UPWARD when advice arrives instead of running off the bottom edge. Captured the conventions in the spec.
+
+### Main Changes
+
+(Add details)
+
+### Git Commits
+
+| Hash | Message |
+|------|---------|
+| `7e2694d` | (see git log) |
+| `9689adc` | (see git log) |
+
+### Testing
+
+- [OK] (Add test results)
+
+### Status
+
+[OK] **Completed**
+
+### Next Steps
+
+- None - task complete
