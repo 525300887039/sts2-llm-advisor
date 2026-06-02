@@ -53,9 +53,20 @@ There is no hotkey. Start a run and finish a combat — when the **card-reward s
 a panel appears in the **top-right** corner with a `STS2 AI Advisor` title and a **获取建议**
 button. Click it to fetch advice. While the request is in flight the panel shows `思考中…`.
 
-## Licensing notes
+## License
 
-- Card-reward hook, entry bootstrap, and UI scaffolding are adapted from
-  [sts2-advisor](https://github.com/ebadon16) (MIT).
-- The game-state reader and main-thread marshalling were written from scratch against the
-  game API surface revealed by STS2-Agent (AGPL); no AGPL code was copied.
+Copyright (C) 2026 ducat and contributors.
+
+This project is licensed under the **GNU Affero General Public License v3.0 only (AGPL-3.0-only)** —
+see [`LICENSE`](LICENSE). It is released under AGPL because it was developed with reference to the
+AGPL-licensed [STS2-Agent](https://github.com/CharTyr/STS2-Agent); choosing AGPL keeps the project
+compliant regardless of how that influence is characterized.
+
+Third-party attribution and the obligations for reused scaffolding (notably
+[sts2-advisor](https://github.com/ebadon16/sts2-advisor), MIT) are recorded in
+[`THIRD_PARTY_LICENSES.md`](THIRD_PARTY_LICENSES.md). No source code from either reference
+repository is redistributed here.
+
+This is an unofficial mod for **Slay the Spire 2** (© MegaCrit) and is **not affiliated with or
+endorsed by MegaCrit**. It redistributes no game code or assets and is subject to the game's own
+modding terms / EULA.
